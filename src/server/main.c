@@ -346,7 +346,7 @@ main(void) {
     // Initialise data structures
     QUEUE *client_queue = queue_create(sizeof(CLIENT_CON_INFO));
     timeout_queue = queue_create(sizeof(TIMEOUT_INFO));
-    database = hash_table_create(2, sizeof(URL_INFO), free_data);
+    database = hash_table_create(16, sizeof(URL_INFO), free_data);
 
     // Initialise worker threads
     pthread_t workers[ THREAD_POOL_SIZE ];
