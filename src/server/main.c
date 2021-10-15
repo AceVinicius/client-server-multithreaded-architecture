@@ -191,26 +191,22 @@ handle_client(CLIENT_CON_INFO *peer_con) {
 
 void *
 handle_client_queue(void *arg) {
-    CLIENT_CON_INFO *peer_con;
-
     bool worker_status = RUNNING_CLIENT;
 
     while (worker_status) {
-        peer_con = (CLIENT_CON_INFO *) dequeue((QUEUE *) arg);
+        CLIENT_CON_INFO *peer_con = (CLIENT_CON_INFO *) dequeue((QUEUE *) arg);
 
         if (peer_con != NULL) {
             handle_client(peer_con);
-            free(peer_con);
         } else {
             pthread_mutex_lock(&event_loop_status_mutex);
             event_loop_status = EXIT_CLIENT;
             pthread_mutex_unlock(&event_loop_status_mutex);
-
             worker_status = EXIT_CLIENT;
         }
-    }
 
-    free(peer_con);
+        free(peer_con);
+    }
 
     return NULL;
 }
