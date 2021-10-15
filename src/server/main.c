@@ -110,14 +110,13 @@ handle_timeout_queue(void *arg) {
         if (timeout != NULL) {
             worker_status = handle_timeout(timeout);
             free(timeout->key);
+            free(timeout);
         } else {
             pthread_mutex_lock(&event_loop_status_mutex);
             event_loop_status = EXIT_CLIENT;
             pthread_mutex_unlock(&event_loop_status_mutex);
             worker_status = EXIT_CLIENT;
         }
-
-        free(timeout);
     }
 
     return NULL;
@@ -173,7 +172,8 @@ handle_client(CLIENT_CON_INFO *peer_con) {
                     send_int(peer_con->fd, HANDLE_FAILURE);
                 }
 
-                free(timeout->key);
+                // Read memory error if uncommented
+                // free(timeout->key);
                 free(timeout);
                 free(url_info->page_content);
                 free(url_info);
@@ -198,14 +198,13 @@ handle_client_queue(void *arg) {
 
         if (peer_con != NULL) {
             handle_client(peer_con);
+            free(peer_con);
         } else {
             pthread_mutex_lock(&event_loop_status_mutex);
             event_loop_status = EXIT_CLIENT;
             pthread_mutex_unlock(&event_loop_status_mutex);
             worker_status = EXIT_CLIENT;
         }
-
-        free(peer_con);
     }
 
     return NULL;

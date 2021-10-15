@@ -50,11 +50,14 @@ static inline void         _free_item     (HASH_TABLE *, HASH_ITEM *);
 
 static size_t
 _hash(const size_t table_size, const string key) {
-    size_t i[ 2 ];
+    const size_t key_size = strlen(key);
+    size_t hash = 17;
 
-    MurmurHash3_x64_128(key, strnlen(key, MAX_KEY), 42, &i);
+    for(size_t i = 0; i < key_size; ++i) {
+        hash = hash * 13 + key[ i ];
+    }
 
-    return (i[ 0 ] + i[ 1 ]) % table_size;
+    return hash % table_size;
 }
 
 
@@ -67,7 +70,7 @@ _create_item(const size_t data_size, const string key, const void *data) {
         return NULL;
     }
 
-    const size_t key_size = strnlen(key, MAX_KEY);
+    const size_t key_size = strlen(key);
 
     new_item->key = (string) calloc(key_size+1, sizeof(char));
     if (new_item->key == NULL) {
@@ -75,7 +78,7 @@ _create_item(const size_t data_size, const string key, const void *data) {
         free(new_item);
         return NULL;
     }
-    
+
     new_item->data = (void *) calloc(1, data_size);
     if (new_item->data == NULL) {
         perror("ts_hash_table: _create_item: calloc");
@@ -130,7 +133,7 @@ _table_peek(HASH_TABLE *table, const string key) {
 
     HASH_ITEM *temp = table->array[ index ];
 
-    while (temp != NULL && strncmp(temp->key, key, MAX_KEY) != 0) {
+    while (temp != NULL && strcmp(temp->key, key) != 0) {
         temp = temp->next;
     }
 
@@ -146,7 +149,7 @@ _table_delete(HASH_TABLE *table, const string key) {
     HASH_ITEM *temp = table->array[ index ];
     HASH_ITEM *prev = NULL;
 
-    while (temp != NULL && strncmp(temp->key, key, MAX_KEY) != 0) {
+    while (temp != NULL && strcmp(temp->key, key) != 0) {
         prev = temp;
         temp = temp->next;
     }
