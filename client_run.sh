@@ -10,5 +10,5 @@ else
 fi
 
 if [ "$?" -eq 0 ]; then
-    valgrind --track-origins=yes --leak-check=full -s ./bin/client "$PORT"
+    valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all -s ./bin/client "$PORT"
 fi
