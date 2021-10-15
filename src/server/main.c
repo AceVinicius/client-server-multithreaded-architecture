@@ -396,8 +396,10 @@ main(void) {
         // Allocate and read user input
         string prompt = get_string(">>> ");
 
-        // Cleaning queue leftovers
-        if (strcmp(prompt, "exit") == 0) {
+        // Server commands
+        if (strcmp(prompt, "list") == 0) {
+            hash_table_print(database);
+        } else if (strcmp(prompt, "exit") == 0) {
             pthread_mutex_lock(&event_loop_status_mutex);
             event_loop_status = EXIT_CLIENT;
             pthread_mutex_unlock(&event_loop_status_mutex);
