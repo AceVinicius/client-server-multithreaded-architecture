@@ -104,8 +104,14 @@ search(QUEUE *tokens, const int server_fd) {
     for (string token = dequeue(tokens); token != NULL; token = dequeue(tokens)) {
         send_int(server_fd, true);
         send_str(server_fd, token);
+
+        if (recv_int(server_fd) == false) {
+            fprintf(stderr, "search: %s cannot be stored in server\n", token);
+        }
+
         free(token);
     }
+
     send_int(server_fd, false);
 
     return RUNNING_CLIENT;

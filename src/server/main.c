@@ -1,3 +1,4 @@
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,10 +30,14 @@
 #define LIST_ID     1
 #define SEARCH_ID   2
 
+#define HANDLE_SUCCESS true
+#define HANDLE_FAILURE false
+
+#define TIMEOUT 5
+
 
 
 struct url_info_t {
-    string url;
     size_t page_content_size;
     string page_content;
 };
@@ -43,12 +48,19 @@ struct client_connection_info_t {
     string ip;
 };
 
+struct timeout_info_t {
+    time_t time;
+    string key;
+};
+
 typedef struct client_connection_info_t CLIENT_CON_INFO;
 typedef struct url_info_t URL_INFO;
+typedef struct timeout_info_t TIMEOUT_INFO;
 
 
 
 HASH_TABLE *database;
+QUEUE *timeout_queue;
 
 pthread_mutex_t event_loop_status_mutex;
 volatile bool event_loop_status = RUNNING_CLIENT;
@@ -59,9 +71,56 @@ void
 free_data(void *data) {
     if (data != NULL) {
         URL_INFO *temp = (URL_INFO *) data;
-        free(temp->url);
         free(temp->page_content);
     }
+}
+
+
+
+bool
+handle_timeout(TIMEOUT_INFO *timeout) {
+    bool status = RUNNING_CLIENT;
+
+    // Wait until timer expires or exit code
+    while (timeout->time >= time(NULL)) {
+        pthread_mutex_lock(&event_loop_status_mutex);
+        if (!event_loop_status) {
+            status = EXIT_CLIENT;
+        }
+        pthread_mutex_unlock(&event_loop_status_mutex);
+
+        sleep(1);
+    }
+
+    // Delete registry from database
+    hash_table_delete(database, timeout->key);
+
+    return status;
+}
+
+
+
+void *
+handle_timeout_queue(void *arg) {
+    bool worker_status = RUNNING_CLIENT;
+
+    while (worker_status) {
+        TIMEOUT_INFO *timeout = (TIMEOUT_INFO *) dequeue(timeout_queue);
+
+        if (timeout != NULL) {
+            worker_status = handle_timeout(timeout);
+            free(timeout->key);
+        } else {
+            pthread_mutex_lock(&event_loop_status_mutex);
+            event_loop_status = EXIT_CLIENT;
+            pthread_mutex_unlock(&event_loop_status_mutex);
+            worker_status = EXIT_CLIENT;
+        }
+
+        free(timeout);
+    }
+
+    return NULL;
 }
 
 
@@ -75,10 +134,50 @@ handle_client(CLIENT_CON_INFO *peer_con) {
 
         case SEARCH_ID:
             while(recv_int(peer_con->fd) == true) {
+                string key = recv_str(peer_con->fd);
+
+                TIMEOUT_INFO *timeout = (TIMEOUT_INFO *) calloc(1, sizeof(TIMEOUT_INFO));
+                
+                if (timeout == NULL) {
+                    free(key);
+                    send_int(peer_con->fd, HANDLE_FAILURE);
+                }
+                
+                timeout->key = key;
+                timeout->time = time(NULL) + TIMEOUT;
+
                 URL_INFO *url_info = (URL_INFO *) calloc(1, sizeof(URL_INFO));
-                url_info->url = recv_str(peer_con->fd);
-                hash_table_insert(database, url_info->url, url_info); 
+
+                if (url_info == NULL) {
+                    free(timeout->key);
+                    free(timeout);
+                    send_int(peer_con->fd, HANDLE_FAILURE);
+                }
+
+                // url_info->page_content = 
+
+                if (!hash_table_insert(database, key, url_info)) {
+                    free(timeout->key);
+                    free(timeout);
+                    free(url_info->page_content);
+                    free(url_info);
+                    send_int(peer_con->fd, HANDLE_FAILURE);
+                }
+
+                if(!enqueue(timeout_queue, timeout)) {
+                    hash_table_delete(database, key);
+                    free(timeout->key);
+                    free(timeout);
+                    free(url_info->page_content);
+                    free(url_info);
+                    send_int(peer_con->fd, HANDLE_FAILURE);
+                }
+
+                free(timeout->key);
+                free(timeout);
+                free(url_info->page_content);
                 free(url_info);
+                send_int(peer_con->fd, HANDLE_SUCCESS);
             }
 
             break;
@@ -251,6 +350,7 @@ main(void) {
 
     // Initialise data structures
     QUEUE *client_queue = queue_create(sizeof(CLIENT_CON_INFO));
+    timeout_queue = queue_create(sizeof(TIMEOUT_INFO));
     database = hash_table_create(2, sizeof(URL_INFO), free_data);
 
     // Initialise worker threads
@@ -273,6 +373,20 @@ main(void) {
 
     pthread_mutex_init(&event_loop_status_mutex, NULL);
     if(pthread_create(&server_thread, NULL, event_loop, client_queue) != 0) {
+        perror("server: main: pthread_create");
+
+        pthread_mutex_lock(&event_loop_status_mutex);
+        event_loop_status = EXIT_CLIENT;
+        pthread_mutex_unlock(&event_loop_status_mutex);
+
+        status = EXIT_CLIENT;
+    }
+
+    // Initialise timeout thread
+    pthread_t timeout_thread;
+
+    pthread_mutex_init(&event_loop_status_mutex, NULL);
+    if(pthread_create(&timeout_thread, NULL, handle_timeout_queue, NULL) != 0) {
         perror("server: main: pthread_create");
 
         pthread_mutex_lock(&event_loop_status_mutex);
@@ -307,7 +421,10 @@ main(void) {
     }
 
     pthread_join(server_thread, NULL);
-    pthread_mutex_destroy(&event_loop_status_mutex);
+
+    // Terminate timeout thread
+    queue_wake_sleeping_workers(timeout_queue, 1);
+    pthread_join(timeout_thread, NULL);
 
     // Terminate all worker threads
     queue_wake_sleeping_workers(client_queue, MAX_CONCURRENT_CONNECTIONS);
@@ -315,8 +432,12 @@ main(void) {
         pthread_join(workers[ i ], NULL);
     }
 
+    // Destroy loop mutex
+    pthread_mutex_destroy(&event_loop_status_mutex);
+
     // Free all allocated memory
     queue_destroy(client_queue);
+    queue_destroy(timeout_queue);
     hash_table_destroy(database);
 
     return EXIT_SUCCESS;
