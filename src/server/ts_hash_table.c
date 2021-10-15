@@ -285,13 +285,13 @@ hash_table_print(HASH_TABLE *table) {
     pthread_mutex_lock(&table->mutex);
 
     for (size_t index = 0; index < table->size; ++index) {
-        printf("\t%zu\t", index);
+        printf("\t%zu ", index);
 
         if (table->array[ index ] == NULL) {
             printf("---");
         } else {
             for (HASH_ITEM *temp = table->array[ index ]; temp != NULL; temp = temp->next) {
-                printf("%s -> ", temp->key);
+                printf(" -> %s", temp->key);
             }
         }
 
