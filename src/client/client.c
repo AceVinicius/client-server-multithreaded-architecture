@@ -29,7 +29,7 @@ list(NTS_QUEUE *tokens, const int server_fd) {
         }
     } while (receiving != -1);
 
-    return RUNNING_CLIENT;
+    return RUNNING_STATE;
 }
 
 
@@ -38,7 +38,7 @@ int
 download(NTS_QUEUE *tokens, const int server_fd) {
     if (tokens == NULL) {
         fputs("client: search: NULL pointer given\n", stderr);
-        return RUNNING_CLIENT;
+        return RUNNING_STATE;
     }
 
     for (string token = nts_dequeue(tokens); token != NULL; token = nts_dequeue(tokens)) {
@@ -54,5 +54,5 @@ download(NTS_QUEUE *tokens, const int server_fd) {
 
     send_int(server_fd, false);
 
-    return RUNNING_CLIENT;
+    return RUNNING_STATE;
 }

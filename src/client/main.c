@@ -49,12 +49,12 @@ static int
 execute_cmd(NTS_QUEUE *tokens, const int cmd_id) {
     if (tokens == NULL) {
         fputs("client: execute_cmd: NULL pointer given\n", stderr);
-        return RUNNING_CLIENT;
+        return RUNNING_STATE;
     }
 
     // Start server connection
     const int server_fd = connect_to_server();
-    bool status = RUNNING_CLIENT;
+    bool status = RUNNING_STATE;
 
     if (server_fd == -1) {
         return status;
@@ -117,15 +117,15 @@ static int
 pre_execute_cmd(NTS_QUEUE *tokens, const string command) {
     if (tokens == NULL) {
         fputs("client: pre_execute_cmd: NULL pointer given\n", stderr);
-        return RUNNING_CLIENT;
+        return RUNNING_STATE;
     }
 
     const int cmd_id = translate_command_into_id(command);
-    bool status = RUNNING_CLIENT;
+    bool status = RUNNING_STATE;
 
     switch (cmd_id) {
         case EXIT_ID:
-            status = EXIT_CLIENT;
+            status = EXIT_STATE;
             break;
 
         case LIST_ID:
@@ -177,7 +177,7 @@ main(const int argc, const char **argv) {
         return EXIT_FAILURE;
     }
 
-    bool status = RUNNING_CLIENT;
+    bool status = RUNNING_STATE;
 
     do {
         // Allocate and read user input
@@ -188,6 +188,7 @@ main(const int argc, const char **argv) {
         if (command == NULL) {
             continue;
         }
+
         status = pre_execute_cmd(tokens, command);
 
         // Cleaning queue leftovers

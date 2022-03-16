@@ -20,13 +20,13 @@
 
 
 pthread_mutex_t event_loop_status_mutex;
-volatile bool event_loop_status = RUNNING_CLIENT;
+volatile bool event_loop_status = RUNNING_STATE;
 
 
 
 void *
 handle_client_queue(void *arg) {
-    bool worker_status = RUNNING_CLIENT;
+    bool worker_status = RUNNING_STATE;
 
     while (worker_status) {
         CLIENT_CON_INFO *peer_con = (CLIENT_CON_INFO *) ts_dequeue((TS_QUEUE *) arg);
@@ -36,9 +36,9 @@ handle_client_queue(void *arg) {
             free(peer_con);
         } else {
             pthread_mutex_lock(&event_loop_status_mutex);
-            event_loop_status = EXIT_CLIENT;
+            event_loop_status = EXIT_STATE;
             pthread_mutex_unlock(&event_loop_status_mutex);
-            worker_status = EXIT_CLIENT;
+            worker_status = EXIT_STATE;
         }
     }
 
@@ -118,7 +118,7 @@ event_loop(void *arg) {
 
     if (server_fd == -1) {
         pthread_mutex_lock(&event_loop_status_mutex);
-        event_loop_status = EXIT_CLIENT;
+        event_loop_status = EXIT_STATE;
         pthread_mutex_unlock(&event_loop_status_mutex);
     }
     
@@ -127,7 +127,7 @@ event_loop(void *arg) {
             perror("server: event_loopt: listen");
 
             pthread_mutex_lock(&event_loop_status_mutex);
-            event_loop_status = EXIT_CLIENT;
+            event_loop_status = EXIT_STATE;
             pthread_mutex_unlock(&event_loop_status_mutex);
 
             break;
@@ -144,7 +144,7 @@ event_loop(void *arg) {
             perror("server: event_loopt: accept");
 
             pthread_mutex_lock(&event_loop_status_mutex);
-            event_loop_status = EXIT_CLIENT;
+            event_loop_status = EXIT_STATE;
             pthread_mutex_unlock(&event_loop_status_mutex);
 
             break;
@@ -176,7 +176,7 @@ event_loop(void *arg) {
 
 int
 main(void) {
-    bool status = RUNNING_CLIENT;
+    bool status = RUNNING_STATE;
 
     // Initialise data structures
     TS_QUEUE *client_queue = ts_queue_create(sizeof(CLIENT_CON_INFO));
@@ -189,10 +189,10 @@ main(void) {
             perror("server: main: pthread_create");
 
             pthread_mutex_lock(&event_loop_status_mutex);
-            event_loop_status = EXIT_CLIENT;
+            event_loop_status = EXIT_STATE;
             pthread_mutex_unlock(&event_loop_status_mutex);
 
-            status = EXIT_CLIENT;
+            status = EXIT_STATE;
         }
     }
 
@@ -204,10 +204,10 @@ main(void) {
         perror("server: main: pthread_create");
 
         pthread_mutex_lock(&event_loop_status_mutex);
-        event_loop_status = EXIT_CLIENT;
+        event_loop_status = EXIT_STATE;
         pthread_mutex_unlock(&event_loop_status_mutex);
 
-        status = EXIT_CLIENT;
+        status = EXIT_STATE;
     }
 
     while (status) {
@@ -217,10 +217,10 @@ main(void) {
         // Server commands
         if (strcmp(prompt, "exit") == 0) {
             pthread_mutex_lock(&event_loop_status_mutex);
-            event_loop_status = EXIT_CLIENT;
+            event_loop_status = EXIT_STATE;
             pthread_mutex_unlock(&event_loop_status_mutex);
 
-            status = EXIT_CLIENT;
+            status = EXIT_STATE;
         } else if (strcmp(prompt, "stats") == 0) {
 
         }

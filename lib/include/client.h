@@ -3,9 +3,6 @@
 
 # include "./cs50.h"
 
-# define SERVER_IP   "localhost"
-# define SERVER_PORT        8000
-
 # define WHITESPACE   " \t\r\n\v"
 # define PROMPT_LIMIT         128
 # define ATTEMPTS              15

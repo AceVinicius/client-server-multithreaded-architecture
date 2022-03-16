@@ -13,8 +13,6 @@
 #include "../../lib/include/cs50.h"
 #include "../../lib/include/server.h"
 #include "../../lib/include/sockets.h"
-#include "../../lib/include/ts_queue.h"
-#include "../../lib/include/ts_hash_table.h"
 
 
 
