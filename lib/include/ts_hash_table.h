@@ -3,7 +3,7 @@
 
 # include <stdbool.h>
 
-#include "../../lib/include/cs50.h"
+#include "./cs50.h"
 
 # define MAX_KEY 128
 

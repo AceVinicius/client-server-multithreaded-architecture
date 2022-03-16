@@ -1,5 +1,5 @@
-#ifndef QUEUE_H
-# define QUEUE_H
+#ifndef TS_QUEUE_H
+# define TS_QUEUE_H
 
 # include <stddef.h>
 # include <stdbool.h>
@@ -10,16 +10,16 @@ extern c {
 
 
 
-typedef struct queue_t QUEUE;
+typedef struct ts_queue_t TS_QUEUE;
 
 
 
-QUEUE *  queue_create                 (const size_t);
-bool     queue_is_empty               (QUEUE *);
-bool     enqueue                      (QUEUE *, const void *);
-void *   dequeue                      (QUEUE *);
-void     queue_destroy                (QUEUE *);
-void     queue_wake_sleeping_workers  (QUEUE *, const size_t);
+TS_QUEUE *  ts_queue_create                 (const size_t);
+bool        ts_queue_is_empty               (TS_QUEUE *);
+bool        ts_enqueue                      (TS_QUEUE *, const void *);
+void *      ts_dequeue                      (TS_QUEUE *);
+void        ts_queue_destroy                (TS_QUEUE *);
+void        ts_queue_wake_sleeping_workers  (TS_QUEUE *, const size_t);
 
 
 
@@ -27,4 +27,4 @@ void     queue_wake_sleeping_workers  (QUEUE *, const size_t);
 }
 # endif
 
-#endif //   QUEUE_H
+#endif //   TS_QUEUE_H

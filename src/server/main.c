@@ -9,183 +9,18 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include "../../lib/include/common.h"
 #include "../../lib/include/cs50.h"
+#include "../../lib/include/server.h"
+#include "../../lib/include/server_handler.h"
 #include "../../lib/include/sockets.h"
 #include "../../lib/include/ts_queue.h"
 #include "../../lib/include/ts_hash_table.h"
 
 
 
-#define SERVER_IP                  "127.0.0.1"
-#define SERVER_PORT                       8000
-#define MAX_CONCURRENT_CONNECTIONS        2048
-
-#define THREAD_POOL_SIZE 24
-
-#define EXIT_CLIENT    false
-#define RUNNING_CLIENT true
-
-#define UNKNOWN_ID -1
-#define EXIT_ID     0
-#define LIST_ID     1
-#define SEARCH_ID   2
-
-#define HANDLE_SUCCESS true
-#define HANDLE_FAILURE false
-
-#define TIMEOUT 5
-
-
-
-struct url_info_t {
-    size_t page_content_size;
-    string page_content;
-};
-
-struct client_connection_info_t {
-    int fd;
-    short port;
-    string ip;
-};
-
-struct timeout_info_t {
-    time_t time;
-    string key;
-};
-
-typedef struct client_connection_info_t CLIENT_CON_INFO;
-typedef struct url_info_t URL_INFO;
-typedef struct timeout_info_t TIMEOUT_INFO;
-
-
-
-HASH_TABLE *database;
-QUEUE *timeout_queue;
-
 pthread_mutex_t event_loop_status_mutex;
 volatile bool event_loop_status = RUNNING_CLIENT;
-
-
-
-void
-free_data(void *data) {
-    if (data != NULL) {
-        URL_INFO *temp = (URL_INFO *) data;
-        free(temp->page_content);
-    }
-}
-
-
-
-bool
-handle_timeout(TIMEOUT_INFO *timeout) {
-    bool status = RUNNING_CLIENT;
-
-    // Wait until timer expires or exit code
-    while (timeout->time >= time(NULL)) {
-        pthread_mutex_lock(&event_loop_status_mutex);
-        if (!event_loop_status) {
-            status = EXIT_CLIENT;
-        }
-        pthread_mutex_unlock(&event_loop_status_mutex);
-
-        sleep(1);
-    }
-
-    // Delete registry from database
-    hash_table_delete(database, timeout->key);
-
-    return status;
-}
-
-
-
-void *
-handle_timeout_queue(void *arg) {
-    bool worker_status = RUNNING_CLIENT;
-
-    while (worker_status) {
-        TIMEOUT_INFO *timeout = (TIMEOUT_INFO *) dequeue(timeout_queue);
-
-        if (timeout != NULL) {
-            worker_status = handle_timeout(timeout);
-            free(timeout->key);
-            free(timeout);
-        } else {
-            pthread_mutex_lock(&event_loop_status_mutex);
-            event_loop_status = EXIT_CLIENT;
-            pthread_mutex_unlock(&event_loop_status_mutex);
-            worker_status = EXIT_CLIENT;
-        }
-    }
-
-    return NULL;
-}
-
-
-
-void
-handle_client(CLIENT_CON_INFO *peer_con) {
-    switch (recv_int(peer_con->fd)) {
-        case LIST_ID:
-            hash_table_list(database, peer_con->fd);
-            break;
-
-        case SEARCH_ID:
-            while(recv_int(peer_con->fd) == true) {
-                string key = recv_str(peer_con->fd);
-
-                TIMEOUT_INFO *timeout = (TIMEOUT_INFO *) calloc(1, sizeof(TIMEOUT_INFO));
-                
-                if (timeout == NULL) {
-                    free(key);
-                    send_int(peer_con->fd, HANDLE_FAILURE);
-                }
-                
-                timeout->key = key;
-                timeout->time = time(NULL) + TIMEOUT;
-
-                URL_INFO *url_info = (URL_INFO *) calloc(1, sizeof(URL_INFO));
-
-                if (url_info == NULL) {
-                    free(timeout->key);
-                    free(timeout);
-                    send_int(peer_con->fd, HANDLE_FAILURE);
-                }
-
-                // url_info->page_content = 
-
-                if (!hash_table_insert(database, key, url_info)) {
-                    free(timeout->key);
-                    free(timeout);
-                    free(url_info->page_content);
-                    free(url_info);
-                    send_int(peer_con->fd, HANDLE_FAILURE);
-                }
-
-                if(!enqueue(timeout_queue, timeout)) {
-                    hash_table_delete(database, key);
-                    free(timeout->key);
-                    free(timeout);
-                    free(url_info->page_content);
-                    free(url_info);
-                    send_int(peer_con->fd, HANDLE_FAILURE);
-                }
-
-                // Read memory error if uncommented
-                // free(timeout->key);
-                free(timeout);
-                free(url_info->page_content);
-                free(url_info);
-                send_int(peer_con->fd, HANDLE_SUCCESS);
-            }
-
-            break;
-
-        default:
-            break;
-    }
-}
 
 
 
@@ -194,7 +29,7 @@ handle_client_queue(void *arg) {
     bool worker_status = RUNNING_CLIENT;
 
     while (worker_status) {
-        CLIENT_CON_INFO *peer_con = (CLIENT_CON_INFO *) dequeue((QUEUE *) arg);
+        CLIENT_CON_INFO *peer_con = (CLIENT_CON_INFO *) ts_dequeue((TS_QUEUE *) arg);
 
         if (peer_con != NULL) {
             handle_client(peer_con);
@@ -318,7 +153,7 @@ event_loop(void *arg) {
         peer_con->ip   = inet_ntoa(peer_addr.sin_addr);
         peer_con->port = recv_int(peer_con->fd);
 
-        bool is_in_queue = enqueue((QUEUE *) arg, peer_con);
+        bool is_in_queue = ts_enqueue((TS_QUEUE *) arg, peer_con);
         send_int(peer_con->fd, is_in_queue);
 
         if (is_in_queue) {
@@ -344,9 +179,7 @@ main(void) {
     bool status = RUNNING_CLIENT;
 
     // Initialise data structures
-    QUEUE *client_queue = queue_create(sizeof(CLIENT_CON_INFO));
-    timeout_queue = queue_create(sizeof(TIMEOUT_INFO));
-    database = hash_table_create(16, sizeof(URL_INFO), free_data);
+    TS_QUEUE *client_queue = ts_queue_create(sizeof(CLIENT_CON_INFO));
 
     // Initialise worker threads
     pthread_t workers[ THREAD_POOL_SIZE ];
@@ -377,33 +210,19 @@ main(void) {
         status = EXIT_CLIENT;
     }
 
-    // Initialise timeout thread
-    pthread_t timeout_thread;
-
-    pthread_mutex_init(&event_loop_status_mutex, NULL);
-    if(pthread_create(&timeout_thread, NULL, handle_timeout_queue, NULL) != 0) {
-        perror("server: main: pthread_create");
-
-        pthread_mutex_lock(&event_loop_status_mutex);
-        event_loop_status = EXIT_CLIENT;
-        pthread_mutex_unlock(&event_loop_status_mutex);
-
-        status = EXIT_CLIENT;
-    }
-
     while (status) {
         // Allocate and read user input
         string prompt = get_string(">>> ");
 
         // Server commands
-        if (strcmp(prompt, "list") == 0) {
-            hash_table_print(database);
-        } else if (strcmp(prompt, "exit") == 0) {
+        if (strcmp(prompt, "exit") == 0) {
             pthread_mutex_lock(&event_loop_status_mutex);
             event_loop_status = EXIT_CLIENT;
             pthread_mutex_unlock(&event_loop_status_mutex);
 
             status = EXIT_CLIENT;
+        } else if (strcmp(prompt, "stats") == 0) {
+
         }
     }
 
@@ -419,12 +238,8 @@ main(void) {
 
     pthread_join(server_thread, NULL);
 
-    // Terminate timeout thread
-    queue_wake_sleeping_workers(timeout_queue, 1);
-    pthread_join(timeout_thread, NULL);
-
     // Terminate all worker threads
-    queue_wake_sleeping_workers(client_queue, MAX_CONCURRENT_CONNECTIONS);
+    ts_queue_wake_sleeping_workers(client_queue, MAX_CONCURRENT_CONNECTIONS);
     for (size_t i = 0; i < THREAD_POOL_SIZE; ++i) {
         pthread_join(workers[ i ], NULL);
     }
@@ -433,9 +248,7 @@ main(void) {
     pthread_mutex_destroy(&event_loop_status_mutex);
 
     // Free all allocated memory
-    queue_destroy(client_queue);
-    queue_destroy(timeout_queue);
-    hash_table_destroy(database);
+    ts_queue_destroy(client_queue);
 
     return EXIT_SUCCESS;
 }

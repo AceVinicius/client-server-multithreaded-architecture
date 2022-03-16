@@ -7,42 +7,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include "../../lib/include/client.h"
+#include "../../lib/include/client_handler.h"
+#include "../../lib/include/common.h"
 #include "../../lib/include/cs50.h"
 #include "../../lib/include/sockets.h"
 #include "../../lib/include/nts_queue.h"
-
-
-
-#define SERVER_IP   "localhost"
-#define SERVER_PORT        8000
-
-#define WHITESPACE   " \t\r\n\v"
-#define PROMPT_LIMIT         128
-#define ATTEMPTS              15
-
-#define EXIT_CLIENT    false
-#define RUNNING_CLIENT true
-
-#define UNKNOWN_ID -1
-#define EXIT_ID     0
-#define LIST_ID     1
-#define SEARCH_ID   2
-
-#define EXIT_CMD   "exit"
-#define LIST_CMD   "list"
-#define SEARCH_CMD "search"
-
-
-
-struct data_t {
-    string token;
-};
-
-typedef struct data_t DATA;
-
-
-
-int PORT;
 
 
 
@@ -76,51 +46,7 @@ connect_to_server(void) {
 
 
 static int
-list(QUEUE *tokens, const int server_fd) {
-    int receiving;
-
-    do {
-        receiving = recv_int(server_fd);
-
-        if (receiving == 1) {
-            char *tmp = recv_str(server_fd);
-            puts(tmp);
-            free(tmp);
-        }
-    } while (receiving != -1);
-
-    return RUNNING_CLIENT;
-}
-
-
-
-static int
-search(QUEUE *tokens, const int server_fd) {
-    if (tokens == NULL) {
-        fputs("client: search: NULL pointer given\n", stderr);
-        return RUNNING_CLIENT;
-    }
-
-    for (string token = dequeue(tokens); token != NULL; token = dequeue(tokens)) {
-        send_int(server_fd, true);
-        send_str(server_fd, token);
-
-        if (recv_int(server_fd) == false) {
-            fprintf(stderr, "search: %s cannot be stored in server\n", token);
-        }
-
-        free(token);
-    }
-
-    send_int(server_fd, false);
-
-    return RUNNING_CLIENT;
-}
-
-
-
-static int
-execute_cmd(QUEUE *tokens, const int cmd_id) {
+execute_cmd(NTS_QUEUE *tokens, const int cmd_id) {
     if (tokens == NULL) {
         fputs("client: execute_cmd: NULL pointer given\n", stderr);
         return RUNNING_CLIENT;
@@ -151,8 +77,8 @@ execute_cmd(QUEUE *tokens, const int cmd_id) {
             status = list(tokens, server_fd);
             break;
 
-        case SEARCH_ID:
-            status = search(tokens, server_fd);
+        case DOWNLOAD_ID:
+            status = download(tokens, server_fd);
             break;
 
         default:
@@ -188,7 +114,7 @@ translate_command_into_id(const string command) {
 
 
 static int
-pre_execute_cmd(QUEUE *tokens, const string command) {
+pre_execute_cmd(NTS_QUEUE *tokens, const string command) {
     if (tokens == NULL) {
         fputs("client: pre_execute_cmd: NULL pointer given\n", stderr);
         return RUNNING_CLIENT;
@@ -218,7 +144,7 @@ pre_execute_cmd(QUEUE *tokens, const string command) {
 
 
 static string 
-parse_prompt(QUEUE *tokens, string prompt) {
+parse_prompt(NTS_QUEUE *tokens, string prompt) {
     if (tokens == NULL) {
         fputs("client: parse_prompt: NULL pointer given\n", stderr);
         return NULL;
@@ -226,7 +152,7 @@ parse_prompt(QUEUE *tokens, string prompt) {
 
     string command = strtok(prompt, WHITESPACE);
 
-    while (enqueue(tokens, strtok(NULL, WHITESPACE)));
+    while (nts_enqueue(tokens, strtok(NULL, WHITESPACE)));
 
     return command;
 }
@@ -246,7 +172,7 @@ main(const int argc, const char **argv) {
         return EXIT_FAILURE;
     }
 
-    QUEUE *tokens = queue_create();
+    NTS_QUEUE *tokens = nts_queue_create();
     if (tokens == NULL) {
         return EXIT_FAILURE;
     }
@@ -265,12 +191,12 @@ main(const int argc, const char **argv) {
         status = pre_execute_cmd(tokens, command);
 
         // Cleaning queue leftovers
-        for (string token = dequeue(tokens); token != NULL; token = dequeue(tokens)) {
+        for (string token = nts_dequeue(tokens); token != NULL; token = nts_dequeue(tokens)) {
             free(token);
         }
     } while (status);
 
-    queue_destroy(tokens);
+    nts_queue_destroy(tokens);
 
     return EXIT_SUCCESS;
 }

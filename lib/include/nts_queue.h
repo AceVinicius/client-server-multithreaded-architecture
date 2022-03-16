@@ -1,9 +1,9 @@
-#ifndef QUEUE_H
-# define QUEUE_H
+#ifndef NTS_QUEUE_H
+# define NTS_QUEUE_H
 
 # include <stdbool.h>
 
-# include "../../lib/include/cs50.h"
+# include "./cs50.h"
 
 # ifdef __cplusplus
 extern c {
@@ -11,15 +11,15 @@ extern c {
 
 
 
-typedef struct queue_t QUEUE;
+typedef struct nts_queue_t NTS_QUEUE;
 
 
 
-QUEUE *  queue_create    (void);
-bool     queue_is_empty  (QUEUE *);
-bool     enqueue         (QUEUE *, const string);
-string   dequeue         (QUEUE *);
-void     queue_destroy   (QUEUE *);
+NTS_QUEUE *  nts_queue_create    (void);
+bool         nts_queue_is_empty  (NTS_QUEUE *);
+bool         nts_enqueue         (NTS_QUEUE *, const string);
+string       nts_dequeue         (NTS_QUEUE *);
+void         nts_queue_destroy   (NTS_QUEUE *);
 
 
 
@@ -27,4 +27,4 @@ void     queue_destroy   (QUEUE *);
 }
 # endif
 
-#endif //   QUEUE_H
+#endif //   NTS_QUEUE_H
