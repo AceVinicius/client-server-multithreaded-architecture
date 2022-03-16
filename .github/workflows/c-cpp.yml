@@ -14,6 +14,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: make server
-      run: make client
+      run: make server
     - name: make client
       run: make client
