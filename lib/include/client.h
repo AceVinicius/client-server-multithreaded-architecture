@@ -1,5 +1,5 @@
-#ifndef SERVER_H
-# define SERVER_H
+#ifndef CLIENT_H
+# define CLIENT_H
 
 # include "./cs50.h"
 
@@ -29,4 +29,4 @@ int PORT;
 }
 # endif
 
-#endif // SERVER_H
+#endif // CLIENT_H
