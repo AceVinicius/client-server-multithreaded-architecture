@@ -21,10 +21,6 @@ typedef struct data_t DATA;
 
 
 
-int PORT;
-
-
-
 # ifdef __cplusplus
 }
 # endif

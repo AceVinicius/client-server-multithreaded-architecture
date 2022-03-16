@@ -16,6 +16,10 @@
 
 
 
+int PORT;
+
+
+
 static int
 connect_to_server(void) {
     struct sockaddr_in server_address;
