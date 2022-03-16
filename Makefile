@@ -54,7 +54,7 @@ SERVER_DEP_DIR = obj/server
 
 # General #
 RM      = rm -rdf
-SHELL   = /bin/zsh
+SHELL   = /bin/bash
 INSTALL = install
 
 # CFLAGS, LDFLAGS, CPPFLAGS, PREFIX #
